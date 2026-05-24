@@ -14,9 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_history.json")
 PROMPT_DIR = os.path.join(BASE_DIR, "..", "data", "prompts")
 
-sysinstruct_preserve = read_instruction(os.path.join(PROMPT_DIR, "preserve.md"))
-sysinstruct_normalize = read_instruction(os.path.join(PROMPT_DIR, "normalize.md"))
-
+instruction = read_instruction(os.path.join(PROMPT_DIR, "instruction.md"))
 client = genai.Client(api_key = GOOGLE_API_KEY)
 history_adapter = TypeAdapter(list[types.Content])
 
@@ -53,12 +51,7 @@ def load_chat_history(config: str) -> Any:
         
         return client.chats.create(model = MODEL, config = config)
         
-def generate_response(prompt: str, mode: str = "normalize") -> str:
-    if mode == "preserve":
-        instruction = sysinstruct_preserve
-    else:
-        instruction = sysinstruct_normalize
-    
+def generate_response(prompt: str) -> str:
     config = types.GenerateContentConfig(system_instruction = instruction)
 
     try:

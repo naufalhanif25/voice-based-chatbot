@@ -9,7 +9,7 @@ from app.llm import generate_response
 app = FastAPI()
 
 @app.post("/voice-chat")
-async def voice_chat(file: UploadFile = File(...), mode: str = Form(default = "normalize")) -> Any:
+async def voice_chat(file: UploadFile = File(...)) -> Any:
     file_bytes = await file.read()
     file_ext = os.path.splitext(file.filename)[-1] or ".wav"
     
@@ -18,7 +18,7 @@ async def voice_chat(file: UploadFile = File(...), mode: str = Form(default = "n
     if "[ERROR]" in transcript:
         raise HTTPException(status_code = 500, detail = transcript)
         
-    response_text = generate_response(transcript, mode)
+    response_text = generate_response(transcript)
     
     if "[ERROR]" in response_text:
         raise HTTPException(status_code = 500, detail = response_text)
