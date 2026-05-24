@@ -1,0 +1,22 @@
+[project]
+name = "uas-praktikum-pemrosesan-bahasa-alami"
+version = "0.1.0"
+description = "A voice-based chatbot application"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = []
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+torchvision = { index = "pytorch-cu124" }
+torchaudio = { index = "pytorch-cu124" }
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
