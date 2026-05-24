@@ -33,7 +33,6 @@ def clean_error_responses():
         filename = item.get("filename") or ""
         utter_id = item.get("utter_id") or ""
         reference = item.get("reference") or ""
-        mode = item.get("mode") or ""
         is_failed = item.get("is_failed") or False
         is_error = False
         
@@ -65,10 +64,9 @@ def clean_error_responses():
         
         for item in removed_items:
             filename = item.get("filename", "Unknown")
-            mode = item.get("mode", "Unknown")
             reason = item.get("reason", "Unknown")
             
-            print(f"[REMOVED] File: {filename} | Mode: {mode} | Reason: {reason}")
+            print(f"[REMOVED] File: {filename} | Reason: {reason}")
 
         cleaned_history = [turn for j, turn in enumerate(chat_histories) if j not in indices_to_remove]
         
