@@ -5,7 +5,7 @@ import gradio as gr
 import scipy.io.wavfile
 from typing import Any
 
-def voice_chat(audio: Any, mode: str) -> str | None:
+def voice_chat(audio: Any) -> str | None:
     if audio is None:
         return None
     
@@ -17,8 +17,7 @@ def voice_chat(audio: Any, mode: str) -> str | None:
         
     with open(audio_path, "rb") as f:
         files = {"file": ("voice.wav", f, "audio/wav")}
-        data = {"mode": mode}
-        response = requests.post("http://localhost:8000/voice-chat", files = files, data = data)
+        response = requests.post("http://localhost:8000/voice-chat", files = files)
 
     if response.status_code == 200:
         output_audio_path = os.path.join(tempfile.gettempdir(), "tts_output.wav")
@@ -36,18 +35,13 @@ with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
             audio_input = gr.Audio(sources = "microphone", type = "numpy", label = "Rekam Pertanyaan Anda")
-            mode_input = gr.Dropdown(
-                choices = ["normalize", "preserve"],
-                value = "normalize",
-                label = "Mode Respons"
-            ) 
             submit_btn = gr.Button("Submit")
         with gr.Column():
             audio_output = gr.Audio(type = "filepath", label = "Balasan dari Asisten")
 
     submit_btn.click(
         fn = voice_chat,
-        inputs = [audio_input, mode_input],
+        inputs = audio_input,
         outputs = audio_output
     )
 
