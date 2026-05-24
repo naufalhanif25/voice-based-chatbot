@@ -140,7 +140,7 @@ def main() -> None:
             print(f"[SKIP] File: {filename} (already processed)")
             continue
 
-        print("\n", end = None) if j > 0 else None
+        print("\n", end = None) if i > 0 else None
         print(f"  File: {filename}")
 
         try:
