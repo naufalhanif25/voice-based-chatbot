@@ -13,5 +13,8 @@ wheels/
 # Additional directories
 models/
 data/
+!data/prompts/instructions.md
+!data/results/pipeline_results_*.json
+!data/corpus/transcripts/reference.json
 app/coqui_tts/
 logs/
