@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+
 options="$@"
 IFS=' ' read -r -a array <<< "$options"
 
