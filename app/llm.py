@@ -1,6 +1,7 @@
 import os
 from google import genai
 from google.genai import types
+from google.genai.types import HttpOptions
 from pydantic import TypeAdapter
 from dotenv import load_dotenv
 from app.utils import generate_log, read_instruction
@@ -15,7 +16,7 @@ CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_histor
 PROMPT_DIR = os.path.join(BASE_DIR, "..", "data", "prompts")
 
 instruction = read_instruction(os.path.join(PROMPT_DIR, "instruction.md"))
-client = genai.Client(api_key = GOOGLE_API_KEY)
+client = genai.Client(api_key = GOOGLE_API_KEY, http_options = HttpOptions(timeout = 3 * (60 * 1000)))
 history_adapter = TypeAdapter(list[types.Content])
 
 def export_chat_history(chat) -> str:
@@ -53,11 +54,10 @@ def load_chat_history(config: str) -> Any:
         
 def generate_response(prompt: str) -> str:
     config = types.GenerateContentConfig(system_instruction = instruction)
-    http_config = client.config.clone(timeout = 55.0)
 
     try:
         chat = load_chat_history(config)
-        response = chat.send_message(prompt, config = http_config)
+        response = chat.send_message(prompt)
         save_chat_history(chat)
         
         return response.text.strip()
