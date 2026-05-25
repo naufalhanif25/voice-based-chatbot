@@ -9,6 +9,7 @@ from app.stt import transcribe_speech_to_text
 from app.llm import generate_response
 from app.tts import transcribe_text_to_speech
 from app.utils import generate_log
+from utils.audio_remux import remux_audio
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AUDIO_DIR = os.path.join(BASE_DIR, "data", "corpus", "audio")
@@ -50,6 +51,40 @@ def run_pipeline(audio_path) -> dict[str, Any]:
     transcript = transcribe_speech_to_text(file_bytes, ".wav")
     stt_lat = time.time() - t0
 
+    if "[ERROR]" in transcript:
+        print(f"  [WARN] Whisper STT Error detected. Attempting FFmpeg remux for: {os.path.basename(audio_path)}")
+        generate_log(f"[WARN] Triggering remux for {audio_path} due to initial error: {transcript}")
+        
+        t_remux_start = time.time()
+        remuxed_bytes = remux_audio(audio_path)
+        
+        if remuxed_bytes:
+            new_transcript = transcribe_speech_to_text(remuxed_bytes, ".wav")
+            stt_lat += (time.time() - t_remux_start)
+            
+            if "[ERROR]" not in new_transcript:
+                print("  [SUCCESS] Remux successful! Transcript recovered")
+                transcript = new_transcript
+            else:
+                transcript = f"[ERROR] STT failed even after FFmpeg remux. Raw: {new_transcript}"
+        else:
+            transcript = "[ERROR] STT failed and FFmpeg remuxing system collapsed"
+
+    if "[ERROR]" in transcript:
+        total_lat = time.time() - t0
+        print("  [SKIP] TTS error persists after remux, skipping text generation using LLM")
+        
+        return {
+            "transcript": transcript.strip(),
+            "response": "Maaf, terjadi gangguan pada sistem pemrosesan audio.",
+            "audio_out": None,
+            "stt_lat": round(stt_lat, 2),
+            "llm_lat": 0.0,
+            "tts_lat": 0.0,
+            "total_lat": round(total_lat, 2),
+            "is_failed": True
+        }
+
     max_retries = 3
     base_delay = 2
     response_text = ""
@@ -74,7 +109,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
             time.sleep(wait_time)
 
     if "[ERROR]" in response_text or "500" in response_text:
-        print("  [SKIP] LLM error persisted after retries, skipping TTS synthesis.")
+        print("  [SKIP] LLM error persisted after retries, skipping TTS synthesis")
         total_lat = time.time() - t0
         
         return {
