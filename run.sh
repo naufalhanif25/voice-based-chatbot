@@ -1,89 +1,134 @@
 #!/usr/bin/bash
 
-options="$@"
-IFS=' ' read -r -a array <<< "$options"
-
-run_server() { 
+function run_server() { 
     uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 $1 
 }
 
-run_app() { 
+function run_app() { 
     uv run gradio_app/app.py $1 
 }
 
-run_analyze() { 
+function run_analyze() { 
     uv run pipeline_analysis.py $1 
 }
 
-clean_results() { 
+function clean_results() { 
     rm -rf data/results/*
     rm -rf data/history/*
 }
 
-clean_logs() { 
+function clean_logs() { 
     rm -rf logs/* 
 }
 
-clean_errors() { 
+function clean_errors() { 
     uv run utils/clean_errors.py
 }
 
-count_errors() {
+function count_errors() {
     if [ -f "$1" ]; then
-        failed_files=$(jq '[.[] | select(.is_failed == true) | .filename]' "$1")
-        total_failed=$(jq '[.[] | select(.is_failed == true)] | length' "$1")
-        total_data=$(jq '. | length' "$1")
-        failed_percent=$(awk "BEGIN {print ($total_failed / $total_data) * 100}")
-
-        echo "[INFO] Failed files: $failed_files"
+        local failed_files=$(jq '[.[] | select(.is_failed == true) | .filename]' "$1")
+        local total_failed=$(jq '[.[] | select(.is_failed == true)] | length' "$1")
+        local total_data=$(jq '. | length' "$1")
+        local failed_percent=$(awk "BEGIN {print ($total_failed / $total_data) * 100}")
+        
+        if [[ "$failed_files" != "[]" ]]; then
+            echo "[INFO] Failed files: $failed_files"
+        fi
+        
         echo "[INFO] Total 'is_failed: true': $total_failed of $total_data | ~$((total_data - total_failed)) ($failed_percent%) ($1)"
     else
-        echo "[WARN] File not found: $1 (skipped)"
+        echo "[WARN] File not found: $1"
     fi
 }
 
-setup_project() {
-    if [ -f "pyproject.toml" ]; then
+function deps_install() {
+    if [ ! -d ".venv" ]; then
         uv venv
+    fi
+
+    local project_cfg="pyproject.toml"
+    local requirements="requirements.txt"
+
+    if [ -f "$project_cfg" ]; then
         uv sync
-        uv pip install -r requirements.txt 
+    else
+        echo "[WARN] No $project_cfg found"
+    fi
+
+    if [ -f "$requirements" ]; then
+        uv pip install -r $requirements
+    else
+        echo "[WARN] No $requirements found"
+    fi
+}
+
+function setup_project() {
+    if [ -f "pyproject.toml" ]; then
+        deps_install
     else
         uv init .
-        uv venv
-        uv sync
-        uv pip install -r requirements.txt 
+        deps_install
     fi
 }
 
-command="${array[0]}"
-others="${array[@]:1}"
+declare -a ARGS=("$@")
+declare -r CMD="${ARGS[0]}"
+declare -a OTHERS="${ARGS[@]:1}"
+declare -r SUB_ARG="${OTHERS[0]}"
 
-if [ "$command" == "server" ]; then
-    run_server $others
-elif [ "$command" == "setup" ]; then
-    setup_project
-elif [ "$command" == "app" ]; then
-    run_app $others
-elif [ "$command" == "analyze" ]; then
-    if [ "${others[0]}" == "--clean" ]; then
-        clean_results
-    elif [ "${others[0]}" == "--fresh" ]; then
-        clean_errors
-    fi
-    run_analyze $others
-elif [ "$command" == "clean" ]; then
-    if [ "${others[0]}" == "--errors" ]; then
-        clean_errors
-    elif [ "${others[0]}" == "--logs" ]; then
-        clean_logs
-    elif [ "${others[0]}" == "--results" ]; then
-        clean_results
-    elif [ "${others[0]}" == "--all" ]; then
-        clean_logs
-        clean_results
-    fi
-elif [ "$command" == "sum" ]; then
-    count_errors data/results/checkpoint.json
-else
-    echo "Unrecognized command: $command"
-fi
+case "$CMD" in
+    server)
+        run_server $OTHERS
+        ;;
+    setup)
+        setup_project
+        ;;
+    sync)
+        deps_install
+        ;;
+    app)
+        run_app $OTHERS
+        ;;
+    analyze)
+        case "$SUB_ARG" in
+            --clean)
+                clean_results
+                ;;
+            --fresh)
+                clean_errors
+                ;;
+            *)
+                echo "Unrecognized sub-command: $SUB_ARG"
+                ;;
+        esac
+
+        run_analyze $OTHERS
+        ;;
+    clean)
+        case "$SUB_ARG" in
+            --errors)
+                clean_errors
+                ;;
+            --logs)
+                clean_logs
+                ;;
+            --results)
+                clean_results
+                ;;
+            --all)
+                clean_logs
+                clean_results
+                ;;
+            *)
+                echo "Unrecognized sub-command: $SUB_ARG"
+                ;;
+        esac
+        ;;
+    sum)
+        count_errors data/results/checkpoint.json
+        ;;
+    *)
+        echo "Unrecognized command: $CMD"
+        ;;
+esac
