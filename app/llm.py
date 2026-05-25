@@ -53,10 +53,11 @@ def load_chat_history(config: str) -> Any:
         
 def generate_response(prompt: str) -> str:
     config = types.GenerateContentConfig(system_instruction = instruction)
+    http_config = client.config.clone(timeout = 55.0)
 
     try:
         chat = load_chat_history(config)
-        response = chat.send_message(prompt)
+        response = chat.send_message(prompt, config = http_config)
         save_chat_history(chat)
         
         return response.text.strip()
