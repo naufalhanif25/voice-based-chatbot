@@ -43,10 +43,14 @@ count_errors() {
 
 setup_project() {
     if [ -f "pyproject.toml" ]; then
+        uv venv
         uv sync
+        uv pip install -r requirements.txt 
     else
         uv init .
+        uv venv
         uv sync
+        uv pip install -r requirements.txt 
     fi
 }
 
