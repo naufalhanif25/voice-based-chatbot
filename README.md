@@ -64,9 +64,10 @@ When running the `pipeline_analysis.py` module, the system enters a bulk evaluat
 ├── pipeline_analysis.py       # Script for mass pipeline evaluation testing
 ├── pyproject.toml             # Dependency configuration for the uv environment
 ├── requirements.txt           # Traditional Python module dependency list
-├── run.sh                     # Project execution automation script
+├── run.bat                    # Windows Command Prompt automation script
+├── run.nu                     # NuShell cross-platform automation script
+├── run.sh                     # Bash/Linux/macOS automation script
 └── uv.lock                    # Dependency lock file for uv
-
 ```
 
 ---
@@ -86,41 +87,43 @@ GEMINI_MODEL=gemini_model_name
 
 ```
 
-### Operational Steps via `run.sh`
+### Operational Steps via Automation Scripts
 
-You can utilize the `run.sh` script with the following usage syntax: `./run.sh <command>`.
+The project provides three alternative automation scripts depending on your operating system or shell environment:
 
-Below is the list of available commands along with their purpose and intent:
+* **Bash (`run.sh`):** For Linux, macOS, or Git Bash on Windows. Usage: `./run.sh <command>`
+* **NuShell (`run.nu`):** For structured shell modern cross-platform environments. Usage: `nu run.nu <command>`
+* **Windows Batch (`run.bat`):** For standard Windows Command Prompt (`cmd.exe`). Usage: `run.bat <command>`
 
-1. **`./run.sh setup`**
+Below is the list of available commands that share identical logic, purposes, and targets across all three scripts:
+
+1. **`setup`**
+* **Syntax Example:** `./run.sh setup` | `nu run.nu setup` | `run.bat setup`
 * **Intent/Purpose:** Performs the initial initialization of the project's virtual environment. This command checks for the existence of the `pyproject.toml` file. If found, it runs `uv sync` to precisely align the local environment with the lock file. If it does not exist yet, it triggers `uv init .` first.
 
-
-2. **`./run.sh server`**
+2. **`server`**
+* **Syntax Example:** `./run.sh server` | `nu run.nu server` | `run.bat server`
 * **Intent/Purpose:** Runs the backend API server powered by FastAPI using the Uvicorn ASGI server at host address `0.0.0.0` and port `8000`. The `--reload` option is enabled so that the server automatically reloads whenever code changes occur in the `app/` directory.
 
-
-3. **`./run.sh app`**
+3. **`app`**
+* **Syntax Example:** `./run.sh app` | `nu run.nu app` | `run.bat app`
 * **Intent/Purpose:** Launches the interactive frontend application built with Gradio (`gradio_app/app.py`). Through this command, the web interface can be accessed by users via a browser to record voice directly from a microphone and receive audio responses from the system.
 
-
-4. **`./run.sh analyze`**
+4. **`analyze`**
+* **Syntax Example:** `./run.sh analyze` | `nu run.nu analyze` | `run.bat analyze`
 * **Intent/Purpose:** Runs automated mass evaluation processing on test files via the `pipeline_analysis.py` script. This command supports additional sub-arguments:
-* `./run.sh analyze --clean`: Deletes all legacy analysis history and chat history prior to starting a brand new analysis from scratch.
-* `./run.sh analyze --fresh`: Performs a cleanup of corrupted or failed data entries within the saved files before initiating the continuous analysis process.
+* `analyze --clean`: Deletes all legacy analysis history and chat history prior to starting a brand new analysis from scratch.
+* `analyze --fresh`: Performs a cleanup of corrupted or failed data entries within the saved files before initiating the continuous analysis process.
 
-
-
-
-5. **`./run.sh clean`**
+5. **`clean`**
+* **Syntax Example:** `./run.sh clean --all` | `nu run.nu clean --all` | `run.bat clean --all`
 * **Intent/Purpose:** Performs directory maintenance by selectively removing garbage or temporary data depending on the sub-argument provided:
 * `--errors`: Executes the `clean_errors.py` module to sort out and discard failed transcript entries from the main checkpoint file.
 * `--logs`: Empties all log files inside the `logs/*` directory.
 * `--results`: Deletes all evaluation report files and saved checkpoint files inside the `data/results/*` directory.
 * `--all`: Runs a comprehensive cleanup function for logs, chat history, and evaluation results simultaneously.
 
-
-
-
-6. **`./run.sh sum`**
-* **Intent/Purpose:** Displays a quick summary of the evaluation status from the `data/results/checkpoint.json` file. This command maps the data using the `jq` utility to filter and count the number of files with an `is_failed == true` status, prints the list of problematic filenames, and precisely displays the system failure ratio percentage.
+6. **`sum`**
+* **Syntax Example:** `./run.sh sum` | `nu run.nu sum` | `run.bat sum`
+* **Intent/Purpose:** Displays a quick summary of the evaluation status from the `data/results/checkpoint.json` file. This command maps and filters the underlying data structure to count the number of files with an `is_failed == true` status, prints the list of problematic filenames, and precisely displays the system failure ratio percentage.
+* *Note for Windows Batch:* This command relies on the `jq` utility being registered within your system's PATH. NuShell handles this query natively without external binary dependencies.
