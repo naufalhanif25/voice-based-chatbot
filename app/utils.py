@@ -1,5 +1,7 @@
 import os
+import json
 from datetime import datetime
+from typing import Any
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGS_DIR = os.path.join(BASE_DIR, "..", "logs")
@@ -18,3 +20,7 @@ def generate_log(message: str) -> None:
 def read_instruction(path: str) -> str:
     with open(path, "r", encoding = "utf-8") as f:
         return f.read().strip()
+
+def read_json(path: str) -> Any:
+    with open(path, "r", encoding = "utf-8") as f:
+        return json.load(f)
