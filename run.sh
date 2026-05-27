@@ -99,7 +99,9 @@ case "$CMD" in
                 clean_errors
                 ;;
             *)
-                echo "Unrecognized sub-command: $SUB_ARG"
+                if [ ! -z "$SUB_ARG" ]; then
+                    echo "Unrecognized sub-command: $SUB_ARG"
+                fi
                 ;;
         esac
 
@@ -121,7 +123,9 @@ case "$CMD" in
                 clean_results
                 ;;
             *)
-                echo "Unrecognized sub-command: $SUB_ARG"
+                if [ ! -z "$SUB_ARG" ]; then
+                    echo "Unrecognized sub-command: ${SUB_ARG}"
+                fi
                 ;;
         esac
         ;;
@@ -129,6 +133,10 @@ case "$CMD" in
         count_errors data/results/checkpoint.json
         ;;
     *)
-        echo "Unrecognized command: $CMD"
+        if [ ! -z "$CMD" ]; then
+            echo "Unrecognized command: $CMD"
+        else
+            echo "No command specified"
+        fi
         ;;
 esac
