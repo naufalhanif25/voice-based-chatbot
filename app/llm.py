@@ -15,15 +15,33 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_history.json")
 PROMPT_DIR = os.path.join(BASE_DIR, "..", "data", "prompts")
 
-instruction = read_instruction(os.path.join(PROMPT_DIR, "instruction.md"))
+preserve = read_instruction(os.path.join(PROMPT_DIR, "preserve.md"))
+normalize = read_instruction(os.path.join(PROMPT_DIR, "normalize.md"))
+
 client = genai.Client(api_key = GOOGLE_API_KEY, http_options = HttpOptions(timeout = 3 * (60 * 1000)))
 history_adapter = TypeAdapter(list[types.Content])
 
-def export_chat_history(chat) -> str:
-    return history_adapter.dump_json(chat.get_history()).decode("utf-8")
+def _export_chat_history(chat) -> str:
+    raw_history = chat.get_history()
+    cleaned_history: list = list()
+    
+    for content in raw_history:
+        cleaned_parts: list = list()
+        
+        for part in content.parts:
+            if hasattr(part, "thought") and part.thought:
+                continue
+                
+            cleaned_parts.append(part)
+        
+        if cleaned_parts:
+            cleaned_content = types.Content(role = content.role, parts = cleaned_parts)
+            cleaned_history.append(cleaned_content)
+            
+    return history_adapter.dump_json(cleaned_history).decode("utf-8")
 
-def save_chat_history(chat) -> None:
-    json_history = export_chat_history(chat)
+def _save_chat_history(chat) -> None:
+    json_history = _export_chat_history(chat)
     
     with open(CHAT_HISTORY_FILE, "w", encoding = "utf-8") as f:
         f.write(json_history)
@@ -51,16 +69,40 @@ def load_chat_history(config: str) -> Any:
         generate_log(log_message)
         
         return client.chats.create(model = MODEL, config = config)
-        
-def generate_response(prompt: str) -> str:
-    config = types.GenerateContentConfig(system_instruction = instruction)
+   
+def _count_tokens(client: Any, history: Any | None = None, model: str | None = None) -> str:
+    return f"[INFO] {client.models.count_tokens(model = model, contents = history)}"
+    
+def generate_response(prompt: str, mode: str = "normalize") -> str:
+    if mode == "preserve":
+        config = types.GenerateContentConfig(system_instruction = preserve)
+    else:
+        config = types.GenerateContentConfig(system_instruction = normalize)
 
     try:
         chat = load_chat_history(config)
-        response = chat.send_message(prompt)
-        save_chat_history(chat)
+        extra = types.UserContent(parts = [types.Part(text = prompt)])
+        history = [*chat.get_history(), extra]
         
-        return response.text.strip()
+        print(_count_tokens(client, history, MODEL))
+        
+        response = chat.send_message(prompt)
+        final_text: str = str()
+        
+        if response.candidates and response.candidates[0].content.parts:
+            text_parts = [
+                part.text for part in response.candidates[0].content.parts 
+                if not (hasattr(part, "thought") and part.thought) and part.text
+            ]
+            final_text = "".join(text_parts).strip()
+        
+        if not final_text:
+            final_text = response.text.strip() if response.text else ""
+            
+        print(f"[INFO] LLM Response: {final_text}")
+        _save_chat_history(chat)
+        
+        return final_text
     except Exception as e:
         log_message = f"[ERROR] {str(e)}"
         generate_log(log_message)
