@@ -7,7 +7,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHECKPOINT_FILE = os.path.join(BASE_DIR, "..", "data", "results", "checkpoint.json")
 CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_history.json")
 
-def open_file(file_path: str) -> Any | None:
+def _open_file(file_path: str) -> Any | None:
     if not os.path.exists(file_path):
         return None
 
@@ -19,11 +19,11 @@ def open_file(file_path: str) -> Any | None:
             return None
 
 def clean_error_responses():
-    results = open_file(CHECKPOINT_FILE)
+    results = _open_file(CHECKPOINT_FILE)
     if results is None:
         return
 
-    chat_histories = open_file(CHAT_HISTORY_FILE) or []
+    chat_histories = _open_file(CHAT_HISTORY_FILE) or []
     
     initial_count = len(results)
     cleaned_results, removed_items = list(), list()
