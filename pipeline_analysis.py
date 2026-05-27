@@ -19,21 +19,21 @@ CHECKPOINT_FILE = os.path.join(RESULTS_DIR, "checkpoint.json")
 
 os.makedirs(RESULTS_DIR, exist_ok = True)
 
-def load_checkpoint() -> Any:
+def _load_checkpoint() -> Any:
     if os.path.exists(CHECKPOINT_FILE):
         with open(CHECKPOINT_FILE, "r", encoding = "utf-8") as f:
             return json.load(f)
     return []
 
-def save_checkpoint(results) -> None:
+def _save_checkpoint(results) -> None:
     with open(CHECKPOINT_FILE, "w", encoding = "utf-8") as f:
         json.dump(results, f, ensure_ascii = False, indent = 4)    
 
-def load_reference() -> Any:
+def _load_reference() -> Any:
     with open(REFERENCE_FILE, "r", encoding = "utf-8") as f:
         return json.load(f)
 
-def get_utter_id(filename) -> str | None:
+def _get_utter_id(filename) -> str | None:
     match = re.search(r"audio(\d+)", filename.lower())
     
     if match:
@@ -43,7 +43,7 @@ def get_utter_id(filename) -> str | None:
         
     return None
 
-def run_pipeline(audio_path) -> dict[str, Any]:
+def _run_pipeline(audio_path: str, mode: str) -> dict[str, Any]:
     with open(audio_path, "rb") as f:
         file_bytes = f.read()
         
@@ -52,7 +52,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
     stt_lat = time.time() - t0
 
     if "[ERROR]" in transcript:
-        print(f"  [WARN] Whisper STT Error detected. Attempting FFmpeg remux for: {os.path.basename(audio_path)}")
+        print(f"[WARN] Whisper STT Error detected. Attempting FFmpeg remux for: {os.path.basename(audio_path)}")
         generate_log(f"[WARN] Triggering remux for {audio_path} due to initial error: {transcript}")
         
         t_remux_start = time.time()
@@ -63,7 +63,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
             stt_lat += (time.time() - t_remux_start)
             
             if "[ERROR]" not in new_transcript:
-                print("  [SUCCESS] Remux successful! Transcript recovered")
+                print("[SUCCESS] Remux successful! Transcript recovered")
                 transcript = new_transcript
             else:
                 transcript = f"[ERROR] STT failed even after FFmpeg remux. Raw: {new_transcript}"
@@ -72,7 +72,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
 
     if "[ERROR]" in transcript:
         total_lat = time.time() - t0
-        print("  [SKIP] TTS error persists after remux, skipping text generation using LLM")
+        print("[SKIP] TTS error persists after remux, skipping text generation using LLM")
         
         return {
             "transcript": transcript.strip(),
@@ -94,7 +94,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
         t1 = time.time()
         
         try:
-            response_text = generate_response(transcript)
+            response_text = generate_response(transcript, mode)
             llm_lat = time.time() - t1
             
             if "[ERROR]" not in response_text and "500" not in response_text:
@@ -105,17 +105,18 @@ def run_pipeline(audio_path) -> dict[str, Any]:
 
         if attempt < max_retries - 1:
             wait_time = base_delay * (2 ** attempt)
-            print(f"  [WARN] LLM Server Error (500). Retrying in {wait_time}s... (Attempt {attempt + 1}/{max_retries})")
+            print(f"[WARN] LLM Server Error (500). Retrying in {wait_time}s... (Attempt {attempt + 1}/{max_retries})")
             time.sleep(wait_time)
 
     if "[ERROR]" in response_text or "500" in response_text:
-        print("  [SKIP] LLM error persisted after retries, skipping TTS synthesis")
+        print("[SKIP] LLM error persisted after retries, skipping TTS synthesis")
         total_lat = time.time() - t0
         
         return {
             "transcript": transcript.strip(),
             "response": response_text,
             "audio_out": None,
+            "mode": mode,
             "stt_lat": round(stt_lat, 2),
             "llm_lat": round(llm_lat, 2),
             "tts_lat": 0.0,
@@ -133,6 +134,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
         "transcript": transcript.strip(),
         "response": response_text,
         "audio_out": audio_out,
+        "mode": mode,
         "stt_lat": round(stt_lat, 2),
         "llm_lat": round(llm_lat, 2),
         "tts_lat": round(tts_lat, 2),
@@ -141,7 +143,7 @@ def run_pipeline(audio_path) -> dict[str, Any]:
     }
 
 def main() -> None:
-    reference = load_reference()
+    reference = _load_reference()
     raw_audio_files = sorted([f for f in os.listdir(AUDIO_DIR) if f.endswith(".wav")])
     audio_files = []
     
@@ -152,100 +154,109 @@ def main() -> None:
             
         audio_files.append(f)
 
-    results = load_checkpoint()
-    processed = set((r["filename"]) for r in results if "error" not in r or r.get("transcript"))
+    results = _load_checkpoint()
+    processed = set((r["filename"], r["mode"]) for r in results if "error" not in r or r.get("transcript"))
 
     total_audio = len(audio_files)
     wer_scores, cer_scores = list(), list()
 
-    print(f"[Total audio files: {total_audio}]")
+    print(f"[INFO] Total audio files: {total_audio}")
 
     for i, filename in enumerate(audio_files):
         audio_path = os.path.join(AUDIO_DIR, filename)
-        utter_id = get_utter_id(filename)
+        utter_id = _get_utter_id(filename)
         ref_text = reference.get(utter_id, None)
 
-        print("\n", end = None) if i > 0 else None
+        print("\n", end = None)
+        print("[ FILE_INFO ]")
         print(f"Index        : {i + 1}/{total_audio}")
         print(f"Processing   : {filename}")
         print(f"Utterance ID : {utter_id}")
         print(f"Reference    : {ref_text}")
-        
-        if(filename) in processed:
-            print(f"[SKIP] File: {filename} (already processed)")
-            continue
-
-        print("\n", end = None) if i > 0 else None
-        print(f"  File: {filename}")
-
-        try:
-            result = run_pipeline(audio_path)
-            transcript = result["transcript"]
             
-            print(f"  Transcript : {transcript}")
-            print(f"  Response   : {result['response']}")
-            print(f"  STT lat.   : {result['stt_lat']}s")
-            print(f"  LLM lat.   : {result['llm_lat']}s")
-            print(f"  TTS lat.   : {result['tts_lat']}s")
-            print(f"  Total lat. : {result['total_lat']}s")
-            print(f"  Is Failed  : {result['is_failed']}")
-
-            if ref_text:
-                word_error = wer(ref_text.lower(), transcript.lower())
-                char_error = cer(ref_text.lower(), transcript.lower())
+        for j, mode in enumerate(["preserve", "normalize"]):
+            print("\n", end = None)
+            print(f"[ MODE: {mode} ]")
+            
+            if (filename, mode) in processed:
+                print(f"[SKIP] File: {filename}, Mode: {mode} (already processed)")
+                continue
                 
-                print(f"  WER: {round(word_error, 4)}")
-                print(f"  CER: {round(char_error, 4)}")
+            print(f"File Name    : {filename}")
+    
+            try:
+                result = _run_pipeline(audio_path, mode)
+                transcript = result["transcript"]
 
-                wer_scores.append(word_error)
-                cer_scores.append(char_error)
-            else:
-                word_error, char_error = None, None
-                log_message = f"[WARN] WER/CER: No reference found for {utter_id}"
-
+                print("\n", end = None)
+                print("[ RESULT ]")
+                print(f"Transcript : {transcript}")
+                print(f"Mode       : {mode}")
+                print(f"Response   : {result['response']}")
+                print(f"STT lat.   : {result['stt_lat']}s")
+                print(f"LLM lat.   : {result['llm_lat']}s")
+                print(f"TTS lat.   : {result['tts_lat']}s")
+                print(f"Total lat. : {result['total_lat']}s")
+                print(f"Is Failed  : {result['is_failed']}")
+    
+                if ref_text:
+                    word_error = wer(ref_text.lower(), transcript.lower())
+                    char_error = cer(ref_text.lower(), transcript.lower())
+                    
+                    print(f"WER        : {round(word_error, 4)}")
+                    print(f"CER        : {round(char_error, 4)}")
+    
+                    wer_scores.append(word_error)
+                    cer_scores.append(char_error)
+                else:
+                    word_error, char_error = None, None
+                    log_message = f"[WARN] WER/CER: No reference found for {utter_id}"
+    
+                    generate_log(log_message)
+                    print(f"[WARN] {log_message}")
+    
+                results.append({
+                    "filename": filename,
+                    "utter_id": utter_id,
+                    "reference": ref_text,
+                    "transcript": transcript,
+                    "response": result["response"],
+                    "audio_out": result["audio_out"],
+                    "mode": mode,
+                    "wer": round(word_error, 4) if word_error is not None else None,
+                    "cer": round(char_error, 4) if char_error is not None else None,
+                    "stt_lat": result["stt_lat"],
+                    "llm_lat": result["llm_lat"],
+                    "tts_lat": result["tts_lat"],
+                    "total_lat": result["total_lat"],
+                    "is_failed": result["is_failed"]
+                })
+                
+            except Exception as e:
+                log_message = f"[ERROR] {e}"
+    
                 generate_log(log_message)
-                print(f"  {log_message}")
-
-            results.append({
-                "filename": filename,
-                "utter_id": utter_id,
-                "reference": ref_text,
-                "transcript": transcript,
-                "response": result["response"],
-                "audio_out": result["audio_out"],
-                "wer": round(word_error, 4) if word_error is not None else None,
-                "cer": round(char_error, 4) if char_error is not None else None,
-                "stt_lat": result["stt_lat"],
-                "llm_lat": result["llm_lat"],
-                "tts_lat": result["tts_lat"],
-                "total_lat": result["total_lat"],
-                "is_failed": result["is_failed"]
-            })
-            
-        except Exception as e:
-            log_message = f"[ERROR] {e}"
-
-            generate_log(log_message)
-            print(f"  {log_message}")
-            
-            results.append({
-                "filename": filename,
-                "utter_id": utter_id,
-                "error": str(e),
-                "is_failed": True
-            })
-
-        save_checkpoint(results)
+                print(f"[ERROR] {log_message}")
                 
-    print("\n", end = "[Summary]")
+                results.append({
+                    "filename": filename,
+                    "utter_id": utter_id,
+                    "mode": mode,
+                    "error": str(e),
+                    "is_failed": True
+                })
+    
+            _save_checkpoint(results)
+                
+    print("\n", end = "[ SUMMARY ]")
     avg_wer, avg_cer, avg_lat = None, None, None
     
     if wer_scores:
         avg_wer = round(sum(wer_scores) / len(wer_scores), 4)
         avg_cer = round(sum(cer_scores) / len(cer_scores), 4)
         
-        print(f"Avg. WER: {avg_wer}")
-        print(f"Avg. CER: {avg_cer}")
+        print(f"Avg. WER       : {avg_wer}")
+        print(f"Avg. CER       : {avg_cer}")
 
     latencies = [r["total_lat"] for r in results if "total_lat" in r]
     
@@ -266,7 +277,7 @@ def main() -> None:
             "results": results
         }, f, ensure_ascii = False, indent = 4)
 
-    print("\n", end = f"Results saved to: {output_file}")
+    print("\n", end = f"[INFO] Results saved to: {output_file}")
 
 if __name__ == "__main__":
     main()
