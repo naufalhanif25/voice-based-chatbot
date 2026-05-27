@@ -1,7 +1,7 @@
 import os
 import tempfile
 import time
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import FileResponse
 from typing import Any
 from app.stt import transcribe_speech_to_text
@@ -13,10 +13,9 @@ from utils.audio_remux import remux_audio
 app = FastAPI()
 
 @app.post("/voice-chat")
-async def voice_chat(file: UploadFile = File(...)) -> Any:
+async def voice_chat(file: UploadFile = File(...), mode: str = Form("normalize")) -> Any:
     file_bytes = await file.read()
     file_ext = os.path.splitext(file.filename)[-1] or ".wav"
-    
     transcript = transcribe_speech_to_text(file_bytes, file_ext)
     
     if "[ERROR]" in transcript:
@@ -52,7 +51,7 @@ async def voice_chat(file: UploadFile = File(...)) -> Any:
     
     for attempt in range(max_retries):
         try:
-            response_text = generate_response(transcript)
+            response_text = generate_response(transcript, mode)
             
             if "[ERROR]" not in response_text and "500" not in response_text:
                 break
