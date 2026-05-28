@@ -2,6 +2,7 @@ import os
 import tempfile
 import requests
 import gradio as gr
+from gradio import themes
 import scipy.io.wavfile
 from typing import Any
 
@@ -54,7 +55,7 @@ def _voice_chat(audio: Any, mode: str, chat_history: list) -> tuple[list, str | 
 def _clear_interface():
     return None, "normalize", [], None
 
-with gr.Blocks(theme = gr.themes.Soft(primary_hue = "teal", secondary_hue = "slate")) as demo:
+with gr.Blocks(theme = themes.Soft(primary_hue = "amber", secondary_hue = "slate")) as demo:
     gr.Markdown("# Voice-Based Chatbot")
     gr.Markdown("Speak directly into the microphone and get voice answer from the AI assistant.")
 
