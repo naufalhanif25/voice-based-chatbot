@@ -116,7 +116,7 @@ def generate_response(prompt: str, mode: str = "normalize") -> str:
         if not final_text:
             final_text = response.text.strip() if response.text else ""
             
-        print(f"[INFO] LLM Response: {final_text}")
+        print(f"[INFO] LLM Response: \"{final_text}\"")
         _save_chat_history(chat)
         
         return final_text
