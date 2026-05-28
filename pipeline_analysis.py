@@ -76,7 +76,7 @@ def _run_pipeline(audio_path: str, mode: str) -> dict[str, Any]:
         
         return {
             "transcript": transcript.strip(),
-            "response": "Maaf, terjadi gangguan pada sistem pemrosesan audio.",
+            "response": "[ERROR] Maaf, terjadi gangguan pada sistem pemrosesan audio.",
             "audio_out": None,
             "stt_lat": round(stt_lat, 2),
             "llm_lat": 0.0,
