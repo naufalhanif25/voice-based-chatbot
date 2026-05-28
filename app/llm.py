@@ -88,7 +88,11 @@ def _load_chat_history(config: str) -> Any:
         return client.chats.create(model = MODEL, config = config)
    
 def _count_tokens(client: Any, history: Any | None = None, model: str | None = None) -> str:
-    return f"[INFO] {client.models.count_tokens(model = model, contents = history)}"
+    total_messages = len(history) if history else 0
+    history_count = max(0, total_messages - 1)
+    token_info = client.models.count_tokens(model = model, contents = history)
+    
+    return f"[INFO] {token_info} total_history_messages={history_count}"
     
 def generate_response(prompt: str, mode: str = "normalize") -> str:
     if mode == "preserve":
