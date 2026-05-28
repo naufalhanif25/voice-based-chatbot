@@ -14,7 +14,7 @@ GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_history.json")
 PROMPT_DIR = os.path.join(BASE_DIR, "..", "data", "prompts")
-MAX_HISTORY_MESSAGES = 20
+MAX_HISTORY_MESSAGES = 50
 
 preserve = read_instruction(os.path.join(PROMPT_DIR, "preserve.md"))
 normalize = read_instruction(os.path.join(PROMPT_DIR, "normalize.md"))
