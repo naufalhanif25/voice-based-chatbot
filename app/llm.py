@@ -14,6 +14,7 @@ GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_history.json")
 PROMPT_DIR = os.path.join(BASE_DIR, "..", "data", "prompts")
+MAX_HISTORY_MESSAGES = 20
 
 preserve = read_instruction(os.path.join(PROMPT_DIR, "preserve.md"))
 normalize = read_instruction(os.path.join(PROMPT_DIR, "normalize.md"))
@@ -37,6 +38,14 @@ def _export_chat_history(chat) -> str:
         if cleaned_parts:
             cleaned_content = types.Content(role = content.role, parts = cleaned_parts)
             cleaned_history.append(cleaned_content)
+
+    if len(cleaned_history) > MAX_HISTORY_MESSAGES:
+        start_index = len(cleaned_history) - MAX_HISTORY_MESSAGES
+        
+        if cleaned_history[start_index].role == "model" or cleaned_history[start_index].role == "assistant":
+            start_index += 1
+            
+        cleaned_history = cleaned_history[start_index:]
             
     return history_adapter.dump_json(cleaned_history).decode("utf-8")
 
@@ -46,7 +55,7 @@ def _save_chat_history(chat) -> None:
     with open(CHAT_HISTORY_FILE, "w", encoding = "utf-8") as f:
         f.write(json_history)
 
-def load_chat_history(config: str) -> Any:
+def _load_chat_history(config: str) -> Any:
     if not os.path.exists(CHAT_HISTORY_FILE):
         return client.chats.create(model = MODEL, config = config)
     
@@ -61,6 +70,14 @@ def load_chat_history(config: str) -> Any:
 
     try:
         history = history_adapter.validate_json(json_str)
+
+        if len(history) > MAX_HISTORY_MESSAGES:
+            start_index = len(history) - MAX_HISTORY_MESSAGES
+            
+            if history[start_index].role == "model":
+                start_index += 1
+                
+            history = history[start_index:]
         
         return client.chats.create(model = MODEL, config = config, history = history)
     except Exception as e:
@@ -80,7 +97,7 @@ def generate_response(prompt: str, mode: str = "normalize") -> str:
         config = types.GenerateContentConfig(system_instruction = normalize)
 
     try:
-        chat = load_chat_history(config)
+        chat = _load_chat_history(config)
         extra = types.UserContent(parts = [types.Part(text = prompt)])
         history = [*chat.get_history(), extra]
         
