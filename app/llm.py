@@ -14,12 +14,14 @@ GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHAT_HISTORY_FILE = os.path.join(BASE_DIR, "..", "data", "history", "chat_history.json")
 PROMPT_DIR = os.path.join(BASE_DIR, "..", "data", "prompts")
+
 MAX_HISTORY_MESSAGES = 50
+RESPONSE_TIMEOUT = 3 * (60 * 1000)
 
 preserve = read_instruction(os.path.join(PROMPT_DIR, "preserve.md"))
 normalize = read_instruction(os.path.join(PROMPT_DIR, "normalize.md"))
 
-client = genai.Client(api_key = GOOGLE_API_KEY, http_options = HttpOptions(timeout = 3 * (60 * 1000)))
+client = genai.Client(api_key = GOOGLE_API_KEY, http_options = HttpOptions(timeout = RESPONSE_TIMEOUT))
 history_adapter = TypeAdapter(list[types.Content])
 
 def _export_chat_history(chat) -> str:

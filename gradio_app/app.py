@@ -6,6 +6,7 @@ import scipy.io.wavfile
 from typing import Any
 
 API_URL = "http://localhost:8000/voice-chat"
+RESPONSE_TIMEOUT = 3 * 60
 
 def _voice_chat(audio: Any, mode: str, chat_history: list) -> tuple[list, str | None]:
     if audio is None:
@@ -23,7 +24,7 @@ def _voice_chat(audio: Any, mode: str, chat_history: list) -> tuple[list, str | 
             
         files = {"file": ("voice.wav", audio_bytes, "audio/wav")}
         payload = {"mode": mode}
-        response = requests.post(API_URL, files = files, data = payload, timeout = 3 * 60)
+        response = requests.post(API_URL, files = files, data = payload, timeout = RESPONSE_TIMEOUT)
         
         if os.path.exists(audio_path):
             os.remove(audio_path)
