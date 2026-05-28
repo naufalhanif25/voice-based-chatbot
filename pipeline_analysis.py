@@ -180,6 +180,13 @@ def main() -> None:
             
             if (filename, mode) in processed:
                 print(f"[SKIP] File: {filename}, Mode: {mode} (already processed)")
+
+                existing_record = next((r for r in results if r.get("filename") == filename and r.get("mode") == mode), None)
+
+                if existing_record and existing_record.get("wer") is not None:
+                    wer_scores.append(existing_record["wer"])
+                    cer_scores.append(existing_record["cer"])
+
                 continue
                 
             print(f"File Name    : {filename}")
@@ -248,7 +255,9 @@ def main() -> None:
     
             _save_checkpoint(results)
                 
-    print("\n", end = "[ SUMMARY ]")
+    print("\n", end = None)
+    print("[ SUMMARY ]")
+    
     avg_wer, avg_cer, avg_lat = None, None, None
     
     if wer_scores:
@@ -263,6 +272,28 @@ def main() -> None:
     if latencies:
         avg_lat = round(sum(latencies) / len(latencies), 2)
         print(f"Avg. total lat.: {avg_lat}s")
+
+    utterance_summary = {}
+    
+    for r in results:
+        if "error" in r or "utter_id" not in r:
+            continue
+            
+        uid = r["utter_id"]
+        mode = r["mode"]
+        
+        if uid not in utterance_summary:
+            utterance_summary[uid] = {}
+            
+        utterance_summary[uid][mode] = {
+            "wer": r.get("wer"),
+            "cer": r.get("cer"),
+            "stt_lat": r.get("stt_lat"),
+            "llm_lat": r.get("llm_lat"),
+            "tts_lat": r.get("tts_lat"),
+            "total_lat": r.get("total_lat"),
+            "is_failed": r.get("is_failed")
+        }
         
     output_file = os.path.join(RESULTS_DIR, f"pipeline_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
     
@@ -274,6 +305,7 @@ def main() -> None:
                 "avg_cer": avg_cer if wer_scores else None,
                 "avg_lat": avg_lat if latencies else None
             },
+            "utterance_summary": utterance_summary,
             "results": results
         }, f, ensure_ascii = False, indent = 4)
 
